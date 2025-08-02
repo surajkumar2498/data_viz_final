@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Climate Change: A Data Story</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/2.5.1/d3-annotation.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(to bottom, #87CEEB, #FFFFFF);
+        color: white;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      }
+
+      .title {
+        text-align: center;
+        font-size: 2.5em;
+        margin-bottom: 10px;
+        color: #fff;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .subtitle {
+        text-align: center;
+        font-size: 1.2em;
+        margin-bottom: 30px;
+        color: #000;
+      }
+
+      .scene-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        color: #333;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      .scene-title {
+        font-size: 1.8em;
+        margin-bottom: 15px;
+        color: #2c3e50;
+        border-bottom: 3px solid #e74c3c;
+        padding-bottom: 10px;
+      }
+
+      .navigation {
+        text-align: center;
+        margin: 30px 0;
+      }
+
+      .nav-button {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        margin: 0 10px;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+      }
+
+      .nav-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+      }
+
+      .current-scene {
+        background: linear-gradient(45deg, #27ae60, #2ecc71) !important;
+        box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+      }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        border: 1px solid #fff;
+        z-index: 1000;
+      }
+
+      .chart-container {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+      }
+
+      .axis-label {
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .region-selector {
+        text-align: center;
+        margin: 20px 0;
+      }
+
+      .region-selector select {
+        padding: 8px 15px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        background: white;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        font-size: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="title">Climate Change: A Data Story</h1>
+      <p class="subtitle">Exploring Global Temperature Changes Through Time</p>
+
+      <div class="navigation">
+        <button
+          class="nav-button current-scene"
+          id="scene1-btn"
+          onclick="showScene(1)"
+        >
+          Global Overview
+        </button>
+        <button class="nav-button" id="scene2-btn" onclick="showScene(2)">
+          Regional Patterns
+        </button>
+        <button class="nav-button" id="scene3-btn" onclick="showScene(3)">
+          Recent Decades
+        </button>
+      </div>
+
+      <!-- Scene 1: Global Temperature Trend -->
+      <div id="scene1" class="scene-container">
+        <h2 class="scene-title">The Global Temperature Story (1880-2013)</h2>
+        <div class="loading" id="loading1">
+          Loading Berkeley Earth temperature data...
+        </div>
+        <div class="chart-container">
+          <svg id="global-chart" width="800" height="500"></svg>
+        </div>
+        <div class="tooltip" id="tooltip1"></div>
+      </div>
+
+      <!-- Scene 2: Regional Comparison -->
+      <div id="scene2" class="scene-container" style="display: none">
+        <h2 class="scene-title">Regional Temperature Variations</h2>
+        <div class="region-selector">
+          <label for="region-select">Compare Regions: </label>
+          <select id="region-select" onchange="updateRegionalChart()">
+            <option value="all">All Regions</option>
+            <option value="Europe">Europe</option>
+            <option value="North America">North America</option>
+            <option value="Asia">Asia</option>
+            <option value="Africa">Africa</option>
+            <option value="South America">South America</option>
+            <option value="Oceania">Oceania</option>
+          </select>
+        </div>
+        <div class="chart-container">
+          <svg id="regional-chart" width="800" height="500"></svg>
+        </div>
+        <div class="tooltip" id="tooltip2"></div>
+      </div>
+
+      <!-- Scene 3: Recent Warming -->
+      <div id="scene3" class="scene-container" style="display: none">
+        <h2 class="scene-title">Accelerating Warming: 1980-2013</h2>
+        <div class="chart-container">
+          <svg id="recent-chart" width="800" height="500"></svg>
+        </div>
+        <div class="tooltip" id="tooltip3"></div>
+      </div>
+    </div>
+
+    <script>
+      let currentScene = 1;
+      let globalData = [];
+      let countryData = [];
+      let selectedRegions = ["Europe", "North America", "Asia", "Africa", "South America", "Oceania"];
+
+      const countryToRegion = {
+        // North America
+        "United States": "North America",
+        "United States Of America": "North America",
+        Canada: "North America",
+        Mexico: "North America",
+        Greenland: "North America",
+        Guatemala: "North America",
+        Belize: "North America",
+        "El Salvador": "North America",
+        Honduras: "North America",
+        Nicaragua: "North America",
+        "Costa Rica": "North America",
+        Panama: "North America",
+        Cuba: "North America",
+        Jamaica: "North America",
+        Haiti: "North America",
+        "Dominican Republic": "North America",
+        Bahamas: "North America",
+        "Trinidad And Tobago": "North America",
+        Barbados: "North America",
+
+        // Europe
+        "United Kingdom": "Europe",
+        Germany: "Europe",
+        France: "Europe",
+        Italy: "Europe",
+        Spain: "Europe",
+        Poland: "Europe",
+        Romania: "Europe",
+        Netherlands: "Europe",
+        Belgium: "Europe",
+        Greece: "Europe",
+        "Czech Republic": "Europe",
+        Portugal: "Europe",
+        Hungary: "Europe",
+        Sweden: "Europe",
+        Austria: "Europe",
+        Belarus: "Europe",
+        Bulgaria: "Europe",
+        Serbia: "Europe",
+        Switzerland: "Europe",
+        Slovakia: "Europe",
+        Denmark: "Europe",
+        Finland: "Europe",
+        Norway: "Europe",
+        Ireland: "Europe",
+        Croatia: "Europe",
+        "Bosnia And Herzegovina": "Europe",
+        Albania: "Europe",
+        Lithuania: "Europe",
+        Slovenia: "Europe",
+        Latvia: "Europe",
+        Estonia: "Europe",
+        Macedonia: "Europe",
+        Moldova: "Europe",
+        Luxembourg: "Europe",
+        Malta: "Europe",
+        Iceland: "Europe",
+        Montenegro: "Europe",
+        Cyprus: "Europe",
+        Andorra: "Europe",
+        Liechtenstein: "Europe",
+        Monaco: "Europe",
+        "San Marino": "Europe",
+        "Vatican City": "Europe",
+        "Åland": "Europe",
+        "Aland": "Europe",
+
+        // Asia
+        China: "Asia",
+        India: "Asia",
+        Russia: "Asia",
+        "Russian Federation": "Asia",
+        Indonesia: "Asia",
+        Pakistan: "Asia",
+        Bangladesh: "Asia",
+        Japan: "Asia",
+        Philippines: "Asia",
+        Vietnam: "Asia",
+        Turkey: "Asia",
+        Iran: "Asia",
+        Thailand: "Asia",
+        Myanmar: "Asia",
+        "South Korea": "Asia",
+        Iraq: "Asia",
+        Afghanistan: "Asia",
+        "Saudi Arabia": "Asia",
+        Uzbekistan: "Asia",
+        Malaysia: "Asia",
+        Nepal: "Asia",
+        Yemen: "Asia",
+        "North Korea": "Asia",
+        "Sri Lanka": "Asia",
+        Kazakhstan: "Asia",
+        Syria: "Asia",
+        Cambodia: "Asia",
+        Jordan: "Asia",
+        Azerbaijan: "Asia",
+        "United Arab Emirates": "Asia",
+        Tajikistan: "Asia",
+        Israel: "Asia",
+        Laos: "Asia",
+        Singapore: "Asia",
+        Oman: "Asia",
+        Kuwait: "Asia",
+        Georgia: "Asia",
+        Mongolia: "Asia",
+        Armenia: "Asia",
+        Qatar: "Asia",
+        Bahrain: "Asia",
+        Kyrgyzstan: "Asia",
+        Turkmenistan: "Asia",
+        Lebanon: "Asia",
+        Brunei: "Asia",
+        Bhutan: "Asia",
+        Maldives: "Asia",
+        "Timor Leste": "Asia",
+
+        // Africa
+        Nigeria: "Africa",
+        Ethiopia: "Africa",
+        Egypt: "Africa",
+        "Democratic Republic Of The Congo": "Africa",
+        "Congo (Democratic Republic Of The Congo)": "Africa",
+        Congo: "Africa",
+        Tanzania: "Africa",
+        "South Africa": "Africa",
+        Kenya: "Africa",
+        Uganda: "Africa",
+        Algeria: "Africa",
+        Sudan: "Africa",
+        Morocco: "Africa",
+        Angola: "Africa",
+        Ghana: "Africa",
+        Mozambique: "Africa",
+        Madagascar: "Africa",
+        Cameroon: "Africa",
+        "Côte D'Ivoire": "Africa",
+        "Cote D'Ivoire": "Africa",
+        "Ivory Coast": "Africa",
+        Niger: "Africa",
+        "Burkina Faso": "Africa",
+        Mali: "Africa",
+        Malawi: "Africa",
+        Zambia: "Africa",
+        Senegal: "Africa",
+        Somalia: "Africa",
+        Chad: "Africa",
+        Zimbabwe: "Africa",
+        Guinea: "Africa",
+        Rwanda: "Africa",
+        Benin: "Africa",
+        Tunisia: "Africa",
+        Burundi: "Africa",
+        "South Sudan": "Africa",
+        Togo: "Africa",
+        "Sierra Leone": "Africa",
+        Libya: "Africa",
+        Liberia: "Africa",
+        "Central African Republic": "Africa",
+        Mauritania: "Africa",
+        Eritrea: "Africa",
+        Gambia: "Africa",
+        Botswana: "Africa",
+        Namibia: "Africa",
+        Gabon: "Africa",
+        Lesotho: "Africa",
+        "Guinea Bissau": "Africa",
+        "Equatorial Guinea": "Africa",
+        Mauritius: "Africa",
+        Eswatini: "Africa",
+        Djibouti: "Africa",
+        Comoros: "Africa",
+        "Cape Verde": "Africa",
+        "São Tomé And Príncipe": "Africa",
+        Seychelles: "Africa",
+
+        // South America
+        Brazil: "South America",
+        Colombia: "South America",
+        Argentina: "South America",
+        Peru: "South America",
+        Venezuela: "South America",
+        Chile: "South America",
+        Ecuador: "South America",
+        Bolivia: "South America",
+        Paraguay: "South America",
+        Uruguay: "South America",
+        Guyana: "South America",
+        Suriname: "South America",
+        "French Guiana": "South America",
+
+        // Oceania
+        Australia: "Oceania",
+        "Papua New Guinea": "Oceania",
+        "New Zealand": "Oceania",
+        Fiji: "Oceania",
+        "Solomon Islands": "Oceania",
+        Vanuatu: "Oceania",
+        Samoa: "Oceania",
+        Kiribati: "Oceania",
+        Micronesia: "Oceania",
+        Tonga: "Oceania",
+        "Marshall Islands": "Oceania",
+        Palau: "Oceania",
+        "Cook Islands": "Oceania",
+        Nauru: "Oceania",
+        Tuvalu: "Oceania",
+      };
+
+      async function init() {
+        try {
+          document.getElementById("loading1").innerHTML =
+            "Loading Berkeley Earth temperature data from GitHub...";
+
+          try {
+            const rawGithubUrl =
+              "https://raw.githubusercontent.com/surajkumar2498/data_viz_final/main";
+            const [globalDataRaw, countryDataRaw] = await Promise.all([
+              d3.csv(`${rawGithubUrl}/GlobalTemperatures.csv`),
+              d3.csv(`${rawGithubUrl}/GlobalLandTemperaturesByCountry.csv`),
+            ]);
+
+            console.log("Successfully loaded CSV files using raw GitHub URLs");
+            await processLoadedData(globalDataRaw, countryDataRaw);
+            return;
+          } catch (rawUrlError) {
+            throw new Error("Failed to load csv from github");
+          }
+        } catch (error) {
+          console.error("Error loading CSV data:", error);
+        }
+      }
+
+      async function processLoadedData(globalDataRaw, countryDataRaw) {
+        try {
+          globalData = globalDataRaw
+            .filter((d) => {
+              return (
+                d.LandAverageTemperature &&
+                d.LandAverageTemperature !== "" &&
+                d.LandAverageTemperature !== "null" &&
+                !isNaN(+d.LandAverageTemperature)
+              );
+            })
+            .map((d) => {
+              return {
+                year: +d.dt.substring(0, 4),
+                month: +d.dt.substring(5, 7),
+                temperature: +d.LandAverageTemperature,
+                uncertainty: +d.LandAverageTemperatureUncertainty || 0,
+                dt: d.dt,
+              };
+            })
+            .filter((d) => {
+              return d.year >= 1880 && d.year <= 2013 && d.month === 1;
+            });
+
+          const unmappedCountries = new Set();
+          countryData = countryDataRaw
+            .filter((d) => {
+              const hasTemp = d.AverageTemperature && 
+                             d.AverageTemperature !== "" && 
+                             d.AverageTemperature !== "null" &&
+                             !isNaN(+d.AverageTemperature);
+              
+              const hasMapping = countryToRegion[d.Country];
+              
+              if (hasTemp && !hasMapping) {
+                unmappedCountries.add(d.Country);
+              }
+              
+              return hasTemp && hasMapping;
+            })
+            .map((d) => {
+              return {
+                year: +d.dt.substring(0, 4),
+                month: +d.dt.substring(5, 7),
+                temperature: +d.AverageTemperature,
+                uncertainty: +d.AverageTemperatureUncertainty || 0,
+                country: d.Country,
+                region: countryToRegion[d.Country],
+                dt: d.dt,
+              };
+            })
+            .filter((d) => {
+              return d.year >= 1880 && d.year <= 2013 && d.month === 1;
+            });
+
+          if (unmappedCountries.size > 0) {
+            console.log('Unmapped countries found:', Array.from(unmappedCountries).slice(0, 20));
+          }
+
+          console.log(`Loaded ${globalData.length} global temperature records`);
+          console.log(
+            `Loaded ${countryData.length} country temperature records`,
+          );
+
+          const availableRegions = [...new Set(countryData.map(d => d.region))];
+          console.log('Available regions:', availableRegions);
+
+          if (globalData.length === 0) {
+            throw new Error("No valid global temperature data found");
+          }
+
+          calculateAnomalies();
+
+          document.getElementById("loading1").style.display = "none";
+          showScene(1);
+        } catch (processingError) {
+          console.error("Error processing loaded data:", processingError);
+          throw processingError;
+        }
+      }
+
+      function calculateAnomalies() {
+        const globalBaseline =
+          globalData
+            .filter((d) => d.year >= 1951 && d.year <= 1980)
+            .reduce((sum, d) => sum + d.temperature, 0) /
+          globalData.filter((d) => d.year >= 1951 && d.year <= 1980).length;
+
+        globalData.forEach((d) => {
+          d.anomaly = d.temperature - globalBaseline;
+        });
+
+        const regionBaselines = {};
+        const regions = [...new Set(countryData.map((d) => d.region))];
+
+        regions.forEach((region) => {
+          const regionBaselineData = countryData.filter(
+            (d) => d.region === region && d.year >= 1951 && d.year <= 1980,
+          );
+
+          if (regionBaselineData.length > 0) {
+            regionBaselines[region] =
+              regionBaselineData.reduce((sum, d) => sum + d.temperature, 0) /
+              regionBaselineData.length;
+          }
+        });
+
+        countryData.forEach((d) => {
+          if (regionBaselines[d.region]) {
+            d.anomaly = d.temperature - regionBaselines[d.region];
+          }
+        });
+
+        console.log(
+          "Calculated temperature anomalies relative to 1951-1980 baseline",
+        );
+        console.log(
+          "Global baseline temperature:",
+          globalBaseline.toFixed(2) + "°C",
+        );
+      }
+
+      function showScene(sceneNumber) {
+        for (let i = 1; i <= 3; i++) {
+          document.getElementById(`scene${i}`).style.display = "none";
+          document
+            .getElementById(`scene${i}-btn`)
+            .classList.remove("current-scene");
+        }
+
+        document.getElementById(`scene${sceneNumber}`).style.display = "block";
+        document
+          .getElementById(`scene${sceneNumber}-btn`)
+          .classList.add("current-scene");
+
+        currentScene = sceneNumber;
+
+        switch (sceneNumber) {
+          case 1:
+            renderGlobalChart();
+            break;
+          case 2:
+            renderRegionalChart();
+            break;
+          case 3:
+            renderRecentChart();
+            break;
+        }
+      }
+
+      function renderGlobalChart() {
+        const svg = d3.select("#global-chart");
+        svg.selectAll("*").remove();
+
+        const margin = { top: 60, right: 80, bottom: 80, left: 80 };
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const g = svg
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Scales
+        const xScale = d3
+          .scaleLinear()
+          .domain(d3.extent(globalData, (d) => d.year))
+          .range([0, width]);
+
+        const yScale = d3
+          .scaleLinear()
+          .domain(d3.extent(globalData, (d) => d.anomaly))
+          .range([height, 0]);
+
+        const line = d3
+          .line()
+          .x((d) => xScale(d.year))
+          .y((d) => yScale(d.anomaly))
+          .curve(d3.curveMonotoneX);
+
+        g.append("g")
+          .attr("transform", `translate(0,${height})`)
+          .call(d3.axisBottom(xScale).tickFormat(d3.format("d")));
+
+        g.append("g").call(d3.axisLeft(yScale));
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("transform", "rotate(-90)")
+          .attr("y", 0 - margin.left)
+          .attr("x", 0 - height / 2)
+          .attr("dy", "1em")
+          .style("text-anchor", "middle")
+          .text("Temperature Anomaly (°C)");
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr(
+            "transform",
+            `translate(${width / 2}, ${height + margin.bottom - 20})`,
+          )
+          .style("text-anchor", "middle")
+          .text("Year");
+
+        g.append("line")
+          .attr("x1", 0)
+          .attr("x2", width)
+          .attr("y1", yScale(0))
+          .attr("y2", yScale(0))
+          .attr("stroke", "#666")
+          .attr("stroke-dasharray", "3,3")
+          .attr("opacity", 0.7);
+
+        g.append("path")
+          .datum(globalData)
+          .attr("fill", "none")
+          .attr("stroke", "#e74c3c")
+          .attr("stroke-width", 2)
+          .attr("d", line);
+
+        g.selectAll(".dot")
+          .data(globalData.filter((d, i) => i % 5 === 0))
+          .enter()
+          .append("circle")
+          .attr("class", "dot")
+          .attr("cx", (d) => xScale(d.year))
+          .attr("cy", (d) => yScale(d.anomaly))
+          .attr("r", 3)
+          .attr("fill", "#e74c3c")
+          .on("mouseover", function (event, d) {
+            d3.select("#tooltip1")
+              .style("opacity", 1)
+              .html(
+                `<strong>Year:</strong> ${d.year}<br><strong>Anomaly:</strong> ${d.anomaly.toFixed(2)}°C<br><strong>Temperature:</strong> ${d.temperature.toFixed(1)}°C`,
+              )
+              .style("left", event.pageX + 10 + "px")
+              .style("top", event.pageY - 10 + "px");
+          })
+          .on("mouseout", function () {
+            d3.select("#tooltip1").style("opacity", 0);
+          });
+
+        const annotations = [
+          {
+            note: {
+              label: "Industrial warming becomes apparent",
+              title: "Early 20th Century Warming",
+              wrap: 120,
+            },
+            x: xScale(1920),
+            y: yScale(-0.1),
+            dy: -50,
+            dx: 30,
+          },
+          {
+            note: {
+              label: "Rapid acceleration of global warming",
+              title: "Modern Warming Era",
+              wrap: 120,
+            },
+            x: xScale(1980),
+            y: yScale(0.3),
+            dy: -40,
+            dx: -50,
+          },
+        ];
+
+        const makeAnnotations = d3.annotation().annotations(annotations);
+
+        g.append("g").attr("class", "annotation-group").call(makeAnnotations);
+      }
+
+      function renderRegionalChart() {
+        const svg = d3.select("#regional-chart");
+        svg.selectAll("*").remove();
+
+        const margin = { top: 60, right: 120, bottom: 80, left: 80 };
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const g = svg
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const selectedRegion = document.getElementById("region-select").value;
+        let filteredData = countryData;
+        if (selectedRegion !== "all") {
+          filteredData = countryData.filter((d) => d.region === selectedRegion);
+        }
+
+        if (filteredData.length === 0) {
+          console.log(`No data found for region: ${selectedRegion}`);
+          // Clear the chart and show message
+          g.append('text')
+            .attr('x', width/2)
+            .attr('y', height/2)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '16px')
+            .style('fill', '#666')
+            .text(`No data available for ${selectedRegion}`);
+          return;
+        }
+
+        console.log(`Found ${filteredData.length} records for region(s):`, 
+          [...new Set(filteredData.map(d => d.region))]);
+
+        const regionalAverages = d3
+          .rollups(
+            filteredData,
+            (v) => d3.mean(v, (d) => d.temperature),
+            (d) => d.region,
+            (d) => d.year,
+          )
+          .map(([region, yearData]) => {
+            return yearData.map(([year, temp]) => ({
+              region: region,
+              year: year,
+              temperature: temp,
+            }));
+          })
+          .flat();
+
+        const baselineByRegion = d3.rollups(
+          regionalAverages.filter((d) => d.year >= 1951 && d.year <= 1980),
+          (v) => d3.mean(v, (d) => d.temperature),
+          (d) => d.region,
+        );
+
+        const baselineMap = new Map(baselineByRegion);
+
+        regionalAverages.forEach((d) => {
+          d.anomaly = d.temperature - baselineMap.get(d.region);
+        });
+
+        const nestedData = d3.group(regionalAverages, (d) => d.region);
+
+        const xScale = d3.scaleLinear().domain([1880, 2013]).range([0, width]);
+
+        const yExtent = d3.extent(regionalAverages, (d) => d.anomaly);
+        const yScale = d3
+          .scaleLinear()
+          .domain(yExtent[0] !== undefined ? yExtent : [-1, 1]) // fallback domain if no data
+          .range([height, 0]);
+
+        const colorScale = d3
+          .scaleOrdinal()
+          .domain([
+            "Europe",
+            "North America",
+            "Asia",
+            "Africa",
+            "South America",
+            "Oceania",
+          ])
+          .range([
+            "#e74c3c",
+            "#3498db",
+            "#2ecc71",
+            "#f39c12",
+            "#9b59b6",
+            "#1abc9c",
+          ]);
+
+        const line = d3
+          .line()
+          .x((d) => xScale(d.year))
+          .y((d) => yScale(d.anomaly))
+          .curve(d3.curveMonotoneX);
+
+        g.append("g")
+          .attr("transform", `translate(0,${height})`)
+          .call(d3.axisBottom(xScale).tickFormat(d3.format("d")));
+
+        g.append("g").call(d3.axisLeft(yScale));
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("transform", "rotate(-90)")
+          .attr("y", 0 - margin.left)
+          .attr("x", 0 - height / 2)
+          .attr("dy", "1em")
+          .style("text-anchor", "middle")
+          .text("Temperature Anomaly (°C)");
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr(
+            "transform",
+            `translate(${width / 2}, ${height + margin.bottom - 20})`,
+          )
+          .style("text-anchor", "middle")
+          .text("Year");
+
+        if (!isNaN(yScale(0))) {
+          g.append("line")
+            .attr("x1", 0)
+            .attr("x2", width)
+            .attr("y1", yScale(0))
+            .attr("y2", yScale(0))
+            .attr("stroke", "#666")
+            .attr("stroke-dasharray", "3,3")
+            .attr("opacity", 0.7);
+        }
+
+        nestedData.forEach((regionData, region) => {
+          g.append("path")
+            .datum(regionData)
+            .attr("fill", "none")
+            .attr("stroke", colorScale(region))
+            .attr("stroke-width", 2)
+            .attr("d", line)
+            .attr("opacity", 0.8);
+        });
+
+        const legend = g
+          .append("g")
+          .attr("class", "legend")
+          .attr("transform", `translate(${width + 20}, 20)`);
+
+        const legendItems = Array.from(nestedData.keys());
+        legendItems.forEach((region, i) => {
+          const legendRow = legend
+            .append("g")
+            .attr("transform", `translate(0, ${i * 20})`);
+
+          legendRow
+            .append("rect")
+            .attr("width", 15)
+            .attr("height", 3)
+            .attr("fill", colorScale(region));
+
+          legendRow
+            .append("text")
+            .attr("x", 20)
+            .attr("y", 0)
+            .attr("dy", "0.35em")
+            .style("font-size", "12px")
+            .text(region);
+        });
+
+        if (nestedData.has('Europe') && selectedRegion === 'all') {
+          const annotations = [
+            {
+              note: {
+                label: "Europe shows accelerated warming trends",
+                title: "Regional Variation",
+                wrap: 120
+              },
+              x: xScale(2000),
+              y: yScale(1.0),
+              dy: -40,
+              dx: -80
+            }
+          ];
+          
+          const makeAnnotations = d3.annotation()
+            .annotations(annotations);
+          
+          g.append('g')
+            .attr('class', 'annotation-group')
+            .call(makeAnnotations);
+        }
+      }
+
+      function renderRecentChart() {
+        const svg = d3.select("#recent-chart");
+        svg.selectAll("*").remove();
+
+        const recentData = globalData.filter((d) => d.year >= 1980);
+
+        const margin = { top: 60, right: 80, bottom: 80, left: 80 };
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const g = svg
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const barWidth = (width / recentData.length) * 0.7;
+
+        const xScale = d3
+          .scaleLinear()
+          .domain(d3.extent(recentData, (d) => d.year))
+          .range([barWidth / 2, width - barWidth / 2]);
+
+        const yScale = d3
+          .scaleLinear()
+          .domain(d3.extent(recentData, (d) => d.anomaly))
+          .range([height, 0]);
+
+        g.append("g")
+          .attr("transform", `translate(0,${height})`)
+          .call(d3.axisBottom(xScale).tickFormat(d3.format("d")));
+
+        g.append("g").call(d3.axisLeft(yScale));
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr("transform", "rotate(-90)")
+          .attr("y", 0 - margin.left)
+          .attr("x", 0 - height / 2)
+          .attr("dy", "1em")
+          .style("text-anchor", "middle")
+          .text("Temperature Anomaly (°C)");
+
+        g.append("text")
+          .attr("class", "axis-label")
+          .attr(
+            "transform",
+            `translate(${width / 2}, ${height + margin.bottom - 20})`,
+          )
+          .style("text-anchor", "middle")
+          .text("Year");
+
+        g.append("line")
+          .attr("x1", 0)
+          .attr("x2", width)
+          .attr("y1", yScale(0))
+          .attr("y2", yScale(0))
+          .attr("stroke", "#666")
+          .attr("stroke-dasharray", "3,3")
+          .attr("opacity", 0.7);
+
+        g.selectAll(".bar")
+          .data(recentData)
+          .enter()
+          .append("rect")
+          .attr("class", "bar")
+          .attr("x", (d) => xScale(d.year) - barWidth / 2)
+          .attr("width", barWidth)
+          .attr("y", (d) => (d.anomaly >= 0 ? yScale(d.anomaly) : yScale(0)))
+          .attr("height", (d) => Math.abs(yScale(d.anomaly) - yScale(0)))
+          .attr("fill", (d) => (d.anomaly >= 0 ? "#e74c3c" : "#3498db"))
+          .attr("opacity", 0.8)
+          .on("mouseover", function (event, d) {
+            d3.select("#tooltip3")
+              .style("opacity", 1)
+              .html(
+                `<strong>Year:</strong> ${d.year}<br><strong>Anomaly:</strong> ${d.anomaly.toFixed(2)}°C<br><strong>Temperature:</strong> ${d.temperature.toFixed(1)}°C`,
+              )
+              .style("left", event.pageX + 10 + "px")
+              .style("top", event.pageY - 10 + "px");
+          })
+          .on("mouseout", function () {
+            d3.select("#tooltip3").style("opacity", 0);
+          });
+
+        const line = d3
+          .line()
+          .x((d) => xScale(d.year))
+          .y((d) => yScale(d.anomaly))
+          .curve(d3.curveMonotoneX);
+
+        g.append("path")
+          .datum(recentData)
+          .attr("fill", "none")
+          .attr("stroke", "#2c3e50")
+          .attr("stroke-width", 3)
+          .attr("d", line)
+          .attr("opacity", 0.7);
+
+        const annotations = [
+          {
+            note: {
+              label: "Most of the warmest years on record occur in this period",
+              title: "Accelerated Warming",
+              wrap: 150,
+            },
+            x: xScale(2005),
+            y: yScale(0.6),
+            dy: -50,
+            dx: -80,
+          },
+        ];
+
+        const makeAnnotations = d3.annotation().annotations(annotations);
+
+        g.append("g").attr("class", "annotation-group").call(makeAnnotations);
+      }
+
+      function updateRegionalChart() {
+        if (currentScene === 2) {
+          renderRegionalChart();
+        }
+      }
+
+      window.onload = init;
+    </script>
+  </body>
+</html>
